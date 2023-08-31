@@ -64,39 +64,12 @@ class OkCancelDialog extends StatelessWidget {
                 Visibility(
                   visible: showCancelButton,
                   child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(40, 40),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      side: const BorderSide(color: Colors.black),
-                      foregroundColor: Colors.black,
-                      textStyle: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
                     onPressed: Navigator.of(context).pop,
                     child: Text(cancelText ?? 'Cancel'),
                   ),
                 ),
                 const SizedBox(width: 10),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    elevation: 0,
-                    minimumSize: const Size(80, 40),
-                    backgroundColor: bgColorButtonConfirm,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    foregroundColor: Colors.white,
-                    textStyle: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                    ),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+                FilledButton(
                   onPressed: onPressed,
                   child: Text(confirmText ?? 'OK'),
                 )

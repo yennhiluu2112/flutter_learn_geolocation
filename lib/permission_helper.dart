@@ -1,66 +1,70 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:app_settings/app_settings.dart' as settings;
+import 'package:geolocator/geolocator.dart';
 
 import 'ok_cancel_dialog.dart';
 
 class PermissionHelper {
-  PermissionHelper._();
+  const PermissionHelper._();
 
-  static Future<bool> request(
-    BuildContext? context,
-  ) async {
-    try {
-      const permission = Permission.location;
-      final status = await permission.status;
-      switch (status) {
-        case PermissionStatus.granted:
-        case PermissionStatus.limited:
-          return true;
-        case PermissionStatus.denied:
-          final requestStatus = await permission.request();
-          if (requestStatus == PermissionStatus.permanentlyDenied &&
-              TargetPlatform.android == defaultTargetPlatform) {
-            showDialogOpenSettings(context!);
-          }
-          return requestStatus.isGranted;
-        case PermissionStatus.restricted:
-        case PermissionStatus.permanentlyDenied:
-          if (context != null && context.mounted) {
-            showDialogOpenSettings(context);
-          }
-          return false;
-        case PermissionStatus.provisional:
-          return false;
-      }
-    } catch (_) {
-      return false;
-    }
-  }
+  static final geolocatorPlatform = GeolocatorPlatform.instance;
 
   static void showDialogOpenSettings(
     BuildContext context,
+    String message,
   ) {
-    var message = 'Please allow us to get your location';
-
     showDialog(
       context: context,
-      builder: (context) {
-        return OkCancelDialog(
-          title: 'Geolocation',
-          contentText: message,
-          onPressed: () {
-            Future.delayed(
-              const Duration(milliseconds: 150),
-              () {
-                settings.AppSettings.openAppSettings();
-              },
-            );
-            Navigator.of(context).pop();
-          },
-        );
-      },
+      builder: (dialogContext) => OkCancelDialog(
+        title: 'Permission denied',
+        contentText: message,
+        onPressed: () async {
+          if (await Geolocator.openLocationSettings()) {
+            if (context.mounted) {
+              Navigator.of(context).pop();
+            }
+          }
+        },
+      ),
     );
+  }
+
+  static Future<bool> handlePermission(BuildContext context) async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await geolocatorPlatform.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (context.mounted) {
+        showDialogOpenSettings(context, 'Location service is not enabled');
+      }
+      return false;
+    }
+
+    permission = await geolocatorPlatform.checkPermission();
+    switch (permission) {
+      case LocationPermission.denied:
+        permission = await geolocatorPlatform.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (context.mounted) {
+            showDialogOpenSettings(context, 'Location permission denied');
+          }
+        }
+        return false;
+      case LocationPermission.deniedForever:
+        if (context.mounted) {
+          showDialogOpenSettings(context, 'Location permission denied forever');
+        }
+        return false;
+      case LocationPermission.unableToDetermine:
+        if (context.mounted) {
+          showDialogOpenSettings(
+              context, 'Location permission not able to determine');
+        }
+        return false;
+      case LocationPermission.always:
+      case LocationPermission.whileInUse:
+        print('Permission granted');
+        return true;
+    }
   }
 }

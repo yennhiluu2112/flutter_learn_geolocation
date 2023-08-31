@@ -23,6 +23,7 @@ dependencies:
   document_file_save_plus: ^2.0.0
   mime: ^1.0.4
   app_settings: ^5.0.0
+  geolocator: ^10.0.0
 
 dev_dependencies:
   flutter_test:

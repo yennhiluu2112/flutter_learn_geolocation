@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
     as bg;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:learn_geolocation/permission_helper.dart';
-import 'package:permission_handler/permission_handler.dart';
+
+import 'permission_helper.dart';
 
 void main() {
   runApp(const MyApp());
@@ -40,35 +40,16 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   List<LatLng> locations = [];
   LatLng? currentPosition;
   String locationStr = '';
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) async {
-    super.didChangeAppLifecycleState(state);
-    switch (state) {
-      case AppLifecycleState.resumed:
-        final isGranted = await Permission.location.request().isGranted;
-        if (!isGranted && mounted) {
-          PermissionHelper.request(context);
-        }
-        break;
-      default:
-    }
-  }
-
-  void getCurrentLocation() async {
-    final location = await bg.BackgroundGeolocation.getCurrentPosition();
-    setState(() {
-      currentPosition = LatLng(
-        location.coords.latitude,
-        location.coords.longitude,
-      );
-    });
-  }
+  bool isPermissionGranted = false;
 
   @override
   void initState() {
     super.initState();
-    getCurrentLocation();
+
+    Future.wait([
+      getPermissionStatus(),
+      getCurrentLocation(),
+    ]);
 
     // Fired whenever a location is recorded
     bg.BackgroundGeolocation.onLocation((bg.Location location) {
@@ -103,6 +84,34 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     });
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    super.didChangeAppLifecycleState(state);
+    switch (state) {
+      case AppLifecycleState.resumed:
+        PermissionHelper.handlePermission(context);
+        break;
+      default:
+    }
+  }
+
+  Future<void> getCurrentLocation() async {
+    final location = await bg.BackgroundGeolocation.getCurrentPosition();
+    setState(() {
+      currentPosition = LatLng(
+        location.coords.latitude,
+        location.coords.longitude,
+      );
+    });
+  }
+
+  Future<void> getPermissionStatus() async {
+    final isGranted = await PermissionHelper.handlePermission(context);
+    setState(() {
+      isPermissionGranted = isGranted;
+    });
+  }
+
   void onLocation(bg.Location location) {
     final ll = LatLng(location.coords.latitude, location.coords.longitude);
     final marker = Marker(
@@ -134,36 +143,46 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return currentPosition == null
-        ? const SizedBox()
-        : Scaffold(
-            body: Stack(
-              alignment: Alignment.bottomCenter,
-              children: [
-                GoogleMap(
-                  onMapCreated: onMapCreated,
-                  myLocationEnabled: true,
-                  initialCameraPosition: CameraPosition(
-                    target: currentPosition!,
-                    zoom: 20,
+    return Scaffold(
+      body: !isPermissionGranted
+          ? const SizedBox()
+          : currentPosition == null
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      Text('Getting current position...'),
+                    ],
                   ),
-                  markers: markers.toSet(),
-                  polylines: {
-                    Polyline(
-                      polylineId: const PolylineId('poylineId'),
-                      points: locations,
-                    )
-                  },
+                )
+              : Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    GoogleMap(
+                      onMapCreated: onMapCreated,
+                      myLocationEnabled: true,
+                      initialCameraPosition: CameraPosition(
+                        target: currentPosition!,
+                        zoom: 20,
+                      ),
+                      markers: markers.toSet(),
+                      polylines: {
+                        Polyline(
+                          polylineId: const PolylineId('poylineId'),
+                          points: locations,
+                        )
+                      },
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 30),
+                      child: FilledButton(
+                        onPressed: saveFile,
+                        child: const Text('Save File'),
+                      ),
+                    ),
+                  ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 30),
-                  child: FilledButton(
-                    onPressed: saveFile,
-                    child: const Text('Save File'),
-                  ),
-                ),
-              ],
-            ),
-          );
+    );
   }
 }
