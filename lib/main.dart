@@ -1,11 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:document_file_save_plus/document_file_save_plus.dart';
+import 'package:archive/archive_io.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
     as bg;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'permission_helper.dart';
 
@@ -72,14 +74,18 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         desiredAccuracy: bg.Config.DESIRED_ACCURACY_HIGH,
         distanceFilter: 10,
         stopOnTerminate: true,
-        startOnBoot: true,
-        debug: true,
+        startOnBoot: false,
+        debug: false,
         logLevel: bg.Config.LOG_LEVEL_VERBOSE,
+        locationAuthorizationRequest: 'Always',
+        allowIdenticalLocations: true,
+        preventSuspend: true,
+        showsBackgroundLocationIndicator: false,
       ),
-    ).then((bg.State state) {
+    ).then((bg.State state) async {
       if (!state.enabled) {
-        // 3.  Start the plugin.
-        bg.BackgroundGeolocation.start();
+        await bg.BackgroundGeolocation.start();
+        await bg.BackgroundGeolocation.changePace(true);
       }
     });
   }
@@ -114,6 +120,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
   void onLocation(bg.Location location) {
     final ll = LatLng(location.coords.latitude, location.coords.longitude);
+    print(ll);
     final marker = Marker(
       markerId: MarkerId(location.uuid),
       position: ll,
@@ -132,13 +139,23 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     });
   }
 
-  void saveFile() async {
+  void saveFileZip() async {
+    Directory appDocDirectory = await getApplicationDocumentsDirectory();
+
     final bytes = Uint8List.fromList(utf8.encode(locationStr));
-    await DocumentFileSavePlus().saveFile(
-      bytes,
-      'location_file.txt',
-      'text/plain',
-    );
+    File file = await File('${appDocDirectory.path}/locations.txt').create();
+    file.writeAsBytesSync(bytes);
+
+    var encoder = ZipFileEncoder();
+    encoder.create('${appDocDirectory.path}/locations.zip');
+    encoder.addFile(file);
+    encoder.close();
+
+    // await DocumentFileSavePlus().saveFile(
+    //   bytes,
+    //   'location_file.txt',
+    //   'text/plain',
+    // );
   }
 
   @override
@@ -177,7 +194,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 30),
                       child: FilledButton(
-                        onPressed: saveFile,
+                        onPressed: saveFileZip,
                         child: const Text('Save File'),
                       ),
                     ),
